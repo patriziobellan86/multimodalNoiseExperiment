@@ -1,0 +1,54 @@
+
+durationAudio = 2;
+[y,fs] = psychwavread('/home/patrizio/Documenti/CiMEC/Computational_Skill/ASSIGNMENT_2_PATRIZIO_BELLAN_for_SCOTT/sounds/airplane.wav');
+len =length(y)/fs;
+a=y;
+% total time to add
+add=durationAudio-len;
+% half time to add, tails
+add=add/2;
+% computing numer of samples to add
+addfs=add*fs
+tmp=[];
+% matrice fittizia di riempimento per code
+tmp(1:addfs)=0;
+tmpaudio=[tmp'; a; tmp'];
+% tmpaudio2=tmpaudio';
+audiowrite('/home/patrizio/Documenti/CiMEC/Computational_Skill/ASSIGNMENT_2_PATRIZIO_BELLAN_for_SCOTT/file3.wav',tmpaudio2,fs)
+
+samplingRate = 44100;
+InitializePsychSound(1);
+pahandle = PsychPortAudio('Open', [], [], [], samplingRate,1);% like ‘win’
+% 
+% PsychPortAudio('FillBuffer', pahandle, tmpaudio2)
+
+% i=GetSecs
+
+buffer1=PsychPortAudio('CreateBuffer',pahandle, tmpaudio'); % attento al ' in tmpaudio!!!!!
+
+PsychPortAudio('UseSchedule', pahandle, 1);
+PsychPortAudio('AddToSchedule', pahandle,buffer1, 1, 0.0, 2.0, 1);
+startTime = PsychPortAudio('Start', pahandle, [], 0, 1);
+% pause(2)
+while GetSecs < startTime + durationAudio; end
+
+PsychPortAudio('Stop', pahandle);
+timeRemoved =GetSecs;
+PsychPortAudio('UseSchedule', pahandle, 2);% schedule reset
+RealPresentationTime = timeRemoved - startTime
+% 
+% % timing is intrinsic in duration due to manual computing of sample size
+% while true
+%     s = PsychPortAudio('GetStatus', pahandle); % playback status
+%     if ~s.Active 
+%         PsychPortAudio('UseSchedule', pahandle, 2);% schedule reset
+%         break
+%     end
+% end
+
+% PsychPortAudio('Start', pahandle, [], 0, 1);
+% f=GetSecs
+% disp(num2str(f-i))
+
+ PsychPortAudio('Close');
+ 

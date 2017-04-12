@@ -1,0 +1,576 @@
+KbName('UnifyKeyNames');
+% clear workspace
+clear;
+clc;
+% avoid errors
+PsychPortAudio('Close');
+sca;
+% suppress all warning
+Screen('Preference', 'SuppressAllWarnings', 1);
+warning('off','all');
+
+%% EXPERIMENT CONSTANTS AND VARIABLES
+presentationTime=0.2;     % stimulus'presentation time
+numBlocks = 1;       % numer of blocks 
+numStimuli = 40;     % stimuli to present in each block
+numNoStimuli = 20;   % stimuli NON present in each block
+nimgGrid = 2;        % number images presented in grid-phase
+noiseFactors = {0.0 0.05 0.1 0.15};   % noise 
+pauseIntratrial = 1; % pause between trials
+pauseTrial = 1;      % pause between offset and retrivial phase
+% durationAudio = 2.0; % audio data duration
+fs = 44100;
+% response = 0;        % variable for collecting responses
+dataname = 'temporany.tmp'; % filename for save response
+current_folder = fileparts(mfilename('fullpath'));  % current folder
+%% SCRIPT CONSTANTS AND VARIABLES
+sep = PathSep ();    % system separator
+screenSize = get( groot, 'Screensize' ); % Display dimension
+screenFactor = 0.75;    % 1 = FULL SCREEN
+% Screen size
+screen_h = floor(screenSize(3)*screenFactor);  % real screen dimension height
+screen_v = floor(screenSize(4)*screenFactor);  % real screen dimension vertical
+
+dimimg = floor(screen_h/4);                    % dimension image
+strYpos = floor(dimimg/3);                     % y pos for sentences
+
+% computing sceen position 
+screenW_x = floor((screenSize(3) - floor(screenSize(3)*screenFactor))/2);
+screenW_y = floor((screenSize(4) - floor(screenSize(4)*screenFactor))/2);
+screenW_h = screen_h + floor((screenSize(3) - floor(screenSize(3)*screenFactor))/2);
+screenW_v = screen_v + floor((screenSize(4) - floor(screenSize(4)*screenFactor))/2);
+% grid creation
+gridImgSize  = floor(screen_v/4);
+% boreder size
+border = floor(gridImgSize/4);
+gridImgSize = [gridImgSize gridImgSize];
+% grid images coords
+igrid=1;
+for x=border+((screen_h-screen_v)/2):gridImgSize(1)+border:screen_v+border+((screen_h-screen_v)/2)
+    for y=border:gridImgSize(1)+border:screen_v
+        if x+gridImgSize(1) <= (screen_v+border+((screen_h-screen_v)/2)) & y+gridImgSize(1) <= screen_v
+            RectsGrid(igrid,:)=[x y x+gridImgSize(1) y+gridImgSize(1)];
+            igrid = igrid+1;
+        end
+    end
+end
+fixationTime = 0.5;
+
+%% SCRIPT START
+
+% INIZIALIZATIONS
+% audio
+InitializePsychSound(1);
+pahandle = PsychPortAudio('Open', [], [], [], fs,1);
+% video
+win=Screen('OpenWindow',0,[255 255 255],[screenW_x screenW_y screenW_h screenW_v]);
+
+% change focus to command window
+commandwindow;
+
+str = sprintf('Assignment 2 \n\n Patrizio Bellan \n\n CIMeC');
+DrawFormattedText(win, str, 'center','center');
+Screen(win,'flip');
+pause(3); 
+
+ans = AskForString(win, 'Would you like run the experiment? (y: yes, n: no): ');
+if strcmp(ans,'y')
+    str = sprintf('Choose experiment s folder');
+    DrawFormattedText(win, str, 'center','center');
+    Screen(win,'flip');
+    pause(2);
+
+    % selecting experiment folder
+%     current_folder = fileparts(mfilename('fullpath'));
+    while true
+        folder_name = uigetdir(current_folder, 'Selecting the folder of the experiment');
+        if folder_name
+            break
+        end
+    end
+    
+    DrawFormattedText(win,'loading data experiment', 'center','center');
+    Screen(win,'flip');
+    
+    % load data
+    stimuli=LoadData(current_folder, dimimg);
+    
+    
+    
+    % ask partecipant name
+    partecipantName = AskForString(win, 'Partecipant Name: ');
+    % coding Name for save file
+    dataname = strcat('subject_', partecipantName(randi(length(partecipantName))), ...
+                partecipantName(randi(length(partecipantName))));
+
+    %         ShowFixationCross (win, fixationCross, fixationTime);
+
+    %% EXPERIMENT
+
+    indresponse = 1;    %'index Response'
+
+    for iblock = 1: numBlocks
+        % block msg
+        str = ['block  ', num2str(iblock), '\', num2str(numBlocks)];
+        DrawFormattedText(win, str, 'center','center');
+        Screen(win,'flip');
+        pause(2);
+
+        % stimuli selection
+        % 50% congruent - 50% incongruent audio vs words or img
+        stimuli = Shuffle(stimuli);
+        presStim = stimuli(1:40);
+        noPresStim = stimuli(41:end);
+
+        for i = 1:length(presStim)
+            subblockStimuli(i).trialString =  presStim(i).string;
+            % congruent incongruent condiction
+            if mod(i,2)
+                % incongruent condiction
+                subblockStimuli(i).congruent = 0;
+                % random choise - avoid errors
+                j = randi(length(presStim));
+                while j == i
+                    j = randi(length(presStim));
+                end
+                subblockStimuli(i).string = presStim(j).string;
+                subblockStimuli(i).img = presStim(j).img;
+            else
+                % congruent condiction
+                subblockStimuli(i).congruent = 1;
+                subblockStimuli(i).string = presStim(i).string;
+                subblockStimuli(i).img =  presStim(i).img;
+            end
+            % introducing noise in stimulus
+            noiseLevel = noiseFactors{mod(i,4)+1};
+            subblockStimuli(i).nioseLevel = noiseLevel;
+            subblockStimuli(i).wav = noiseSample (presStim(i).wav, noiseLevel);
+        end
+
+        % shuffling stimoli
+        subblockStimuli = Shuffle(subblockStimuli);
+
+
+        %% Fase 1
+        DrawFormattedText(win, 'first part','center', 'center'); %,'center', 'center');
+        Screen('Flip', win);
+        pause(1);
+        for i = 1:numStimuli
+            % Presentation fase
+            DrawFormattedText(win, 'listen carrefully','center', 'center'); %,'center', 'center');
+            Screen('Flip', win);
+            pause(1);
+            Screen('Flip', win);
+            %play audio 
+            PsychPortAudio('FillBuffer', pahandle, subblockStimuli(i).wav');
+            startTime = PsychPortAudio('Start', pahandle);
+            while true
+                s = PsychPortAudio('GetStatus', pahandle); % query current playback status
+                if ~s.Active
+                    break
+                end
+            end
+            ShowFixationCross (win, pauseIntratrial);
+            % retrival fase
+            % show img          
+            DrawFormattedText(win, 'press "x" if the image is the word that you have heared, "n" instead','center',strYpos); 
+            tex = Screen('MakeTexture',win,subblockStimuli(i).img);
+            Screen('DrawTexture', win, tex);
+            sRT = Screen('Flip', win);
+            % defined 'x' and 'n' as True false for the experiment
+            [eRT keyCode] = KbWait;
+
+            response(indresponse).exp = 1;
+            response(indresponse).congruent = subblockStimuli(i).congruent;
+
+            if KbName(keyCode) == 'x'
+                if subblockStimuli(i).congruent
+                    % correct answer
+                    response(indresponse).correct = 1;
+                else
+                    % incorrect answer
+                    response(indresponse).correct = 0;
+                end
+            else
+                if subblockStimuli(i).congruent
+                    % incorrect answer
+                    response(indresponse).correct = 0;
+                else
+                    % correct answer
+                    response(indresponse).correct = 1;
+                end 
+            end
+            response(indresponse).RT = eRT - sRT;        
+            indresponse = indresponse+1;        
+            pause(pauseTrial);
+        end
+        pause (pauseIntratrial);
+
+        % shuffling stimoli
+        subblockStimuli = Shuffle(subblockStimuli);
+
+        
+        %AGGIUNGERE SCRITTA CAMBIO EXPXX
+    %% Fase 2   
+    DrawFormattedText(win, 'second part','center', 'center'); %,'center', 'center');
+    Screen('Flip', win);
+    pause(1);
+        for i = 1:numStimuli
+            % Presentation fase
+            DrawFormattedText(win, 'listen carrefully','center', 'center'); %,'center', 'center');
+            Screen('Flip', win);
+            pause(1);
+            Screen('Flip', win);
+            %play audio
+            PsychPortAudio('FillBuffer', pahandle, subblockStimuli(i).wav');
+            startTime = PsychPortAudio('Start', pahandle);
+            while true
+                s = PsychPortAudio('GetStatus', pahandle); % query current playback status
+                if ~s.Active
+                    break
+                end
+            end
+            ShowFixationCross (win, pauseIntratrial);
+
+            % retrival fase
+            % show img       
+            DrawFormattedText(win, 'press x if the word is the same word that you heared, any key instead', 'center', strYpos);
+            DrawFormattedText(win, subblockStimuli(i).string,'center', 'center');
+            sRT = Screen('Flip', win);
+            % defined 'x' and 'n' as True false for the experiment
+            [eRT keyCode] = KbWait;
+
+            response(indresponse).exp = 2;
+            response(indresponse).congruent = subblockStimuli(i).congruent;
+
+            if KbName(keyCode) == 'x'
+                if subblockStimuli(i).congruent
+                    % correct answer
+                    response(indresponse).correct = 1;
+                else
+                    % incorrect answer
+                    response(indresponse).correct = 0;
+                end
+            else
+                if subblockStimuli(i).congruent
+                    % incorrect answer
+                    response(indresponse).correct = 0;
+                else
+                    % correct answer
+                    response(indresponse).correct = 1;
+                end 
+            end
+            response(indresponse).RT = eRT - sRT;        
+            indresponse = indresponse+1;
+            pause(pauseTrial);
+        end
+        pause (pauseIntratrial);
+
+
+        % shuffling stimoli
+        subblockStimuli = Shuffle(subblockStimuli);
+
+        %% Fase 3
+        DrawFormattedText(win, 'thrid part','center', 'center'); 
+        Screen('Flip', win);
+        pause(2);
+        DrawFormattedText(win,'write the word that you have heared : ');
+        Screen('Flip', win);
+        pause(1);
+        % listen 
+        % retrieval write
+        for i = 1:numStimuli
+            % only congruent stimuli
+            if ~subblockStimuli(i).congruent
+                continue
+            end 
+            % Presentation fase
+            DrawFormattedText(win, 'listen carrefully','center', 'center'); 
+            Screen('Flip', win);
+            pause(1);
+            Screen('Flip', win);
+            %play audio
+            PsychPortAudio('FillBuffer', pahandle, subblockStimuli(i).wav');
+            startTime = PsychPortAudio('Start', pahandle);
+            while true
+                s = PsychPortAudio('GetStatus', pahandle); % query current playback status
+                if ~s.Active
+                    break
+                end
+            end
+            ShowFixationCross (win, pauseIntratrial);
+            
+            % retrival fase
+            [string RT]= AskForString(win, 'write the word that you have heared : ');
+
+            response(indresponse).exp = 3;
+            response(indresponse).congruent = subblockStimuli(i).congruent;
+
+            if strcmp(string, subblockStimuli(i).string)
+                % correct answer
+                response(indresponse).correct = 1;
+            else
+                % incorrect answer
+                response(indresponse).correct = 0;
+            end
+            response(indresponse).RT = RT;
+            indresponse = indresponse+1;
+            pause(pauseTrial);
+        end
+        pause (pauseIntratrial);
+        
+
+
+        %% Fase 4
+        DrawFormattedText(win, 'fourth part','center', 'center'); %,'center', 'center');
+        Screen('Flip', win);
+        pause(1);
+        DrawFormattedText(win, 'select ONLY the images corresponding to the words that you have heared before','center','center');
+        pause (3);
+        Screen('Flip',win);
+            
+        % only matching seen img 
+        % 20 trials.
+        for i = 1:numNoStimuli
+            % choose 2 images presented and 7 never presented
+            % the goal is to find the 2 images
+
+            % shuffling stimoli
+            presStim = Shuffle(presStim);
+            noPresStim = Shuffle(noPresStim);
+
+            for j = 1:nimgGrid
+                stimuliGrid(j).tex = Screen('MakeTexture', win,presStim(j).img);
+                stimuliGrid(j).presented = 1;
+            end
+            for j = nimgGrid+1:9
+                stimuliGrid(j).tex = Screen('MakeTexture', win,noPresStim(j).img);
+                stimuliGrid(j).presented = 0;
+            end
+            stimuliGrid = Shuffle(stimuliGrid);
+
+            for j=1:9
+                stimuliGrid(j).coords = RectsGrid(j,:);
+            end
+
+            correct = 0;    % correct answers
+            attempts = 0;   % number of attempts
+
+            % start experimental phase
+             % grid drawing
+            ShowFixationCross (win, fixationTime);
+             
+            for row=1:length(stimuliGrid)
+                Screen('DrawTexture',win, stimuliGrid(row).tex, [], [stimuliGrid(row).coords]);
+            end
+            sRT = Screen(win,'flip');
+            while (attempts < 9) & (correct < nimgGrid)
+                
+                [mouseX, mouseY, buttons]=GetMouse(win);
+                if buttons(1)
+                    % check if is in the coord of one rect
+                    for row=1:length(stimuliGrid)
+                        if mouseX >=  stimuliGrid(row).coords(1) &  mouseX <= stimuliGrid(row).coords(3) & ...
+                                mouseY >=  stimuliGrid(row).coords(2) &  mouseY <= stimuliGrid(row).coords(4)
+                            if stimuliGrid(row).presented 
+                                correct = correct+1;
+                                if correct == nimgGrid
+                                    eRT = Screen('Flip',win);
+                                    break
+                                end
+                            end
+                            attempts = attempts + 1;
+                            % image deletion
+                            stimuliGrid(row) = [];
+                            
+                            % redrawing the grid
+                            sRT = Screen(win,'flip');
+                            for row=1:length(stimuliGrid)
+                                Screen('DrawTexture',win, stimuliGrid(row).tex, [], [stimuliGrid(row).coords]);
+                            end
+                            sRT = Screen(win,'flip');
+                            break;
+                        end
+                    end
+                    if correct == nimgGrid
+                        break
+                    end
+                end
+            end 
+            response(indresponse).exp = 4;
+            % accuracy memorized in the congruent column
+            response(indresponse).congruent = correct/attempts;
+            response(indresponse).RT = eRT - sRT;        
+            indresponse = indresponse+1;       
+            pause (pauseIntratrial);
+        end
+        pause (3);
+    end
+
+    DrawFormattedText(win, 'Select file to save', 'center','center');
+    Screen(win,'flip');
+    pause(2);
+
+    % save data
+    while true
+        [FileName,PathName] = uiputfile({'*.xlsx','*.xlsx excel file'; '*.csv','*.csv CSV'} ,'Save data',strcat(current_folder,dataname));
+        if FileName
+            break
+        end
+    end
+    FileName=fullfile(PathName,sep,FileName);
+    try
+        data=struct2table (response);
+        writetable(data,FileName);
+
+        DrawFormattedText(win, 'data saved', 'center','center');
+        Screen(win,'flip');
+        pause(2);
+    catch
+        DrawFormattedText(win, 'save failed due to errors', 'center','center');
+        Screen(win,'flip');
+        pause(2);
+    end
+
+    % close PortAudio
+    PsychPortAudio('Close');    
+end
+
+ans = AskForString(win, 'Would you like analyzing data? (y: yes, n: no)  :');
+if strcmp(ans,'y')
+    %% Analyzing data
+    
+    % open data files (a file for each subject)
+    while true
+        [FileName,PathName] = uigetfile({'*.xlsx','*.xlsx excel file'; '*.csv','*.csv CSV'},'Open files for analysis' ,dataname,'MultiSelect','on')
+        if length(FileName)
+            break
+        end
+    end
+    analysData = [];
+    if isa(FileName, 'char')
+        % single file
+        data=readtable(FileName);
+        data = table2struct(data);
+        
+        [f,n,e]=fileparts(FileName)
+        sbjName = n(end-1:end);
+        for j = 1:length(data)
+            data(j).subject = sbjName;
+        end
+        analysData = data;
+    else 
+        % multiple files
+        for i = 1:length(FileName)
+            data=readtable(FileName{i});
+            data = table2struct(data);
+            
+            % adding subjectName (only last 2 letters because the first are not the subject's name coded!)
+%             sbjName = FileName{i};
+            [f,n,e]=fileparts(FileName{i})
+            sbjName = n(end-1:end);
+            for j = 1:length(data)
+                data(j).subject = sbjName;
+            end
+            analysData = [analysData; data];
+        end
+    end
+    
+    
+    %% ANOVA
+    
+    %% TODO TODO 
+    % PLOTTING DATA
+    
+    
+end
+
+DrawFormattedText(win, 'End of the experiment', 'center','center');
+Screen(win,'flip');
+pause(3);
+
+% close screen
+Screen('CloseAll');
+sca
+
+%% END EXPERIMENT SCRIPT
+
+%% SCRIPT FUNCTIONS
+
+function stimuli = LoadData (current_folder, dimimg)
+    sep = PathSep();
+
+    current_folder_audio = [current_folder sep 'sounds' sep ];
+    current_folder_image = [current_folder sep 'images' sep ];
+
+    fileslistSounds = dir (current_folder_audio);
+    fileslistSounds = {fileslistSounds.name};
+    fileslistSounds = setdiff(fileslistSounds,'.');
+    fileslistSounds = setdiff(fileslistSounds,'..');
+
+    fileslistImgs = dir (current_folder_image);
+    fileslistImgs = {fileslistImgs.name};
+    fileslistImgs = setdiff(fileslistImgs,'.');
+    fileslistImgs = setdiff(fileslistImgs,'..');
+    fileslistImgs = fileslistImgs';
+    stimulus='';
+
+    fpointer = fopen ( 'elenco_stimoli' , 'r');
+    for i=1:100
+        dato = fscanf ( fpointer , '%s\n',1 );
+        if isempty(dato); break; end
+        stimulus(i).string = dato;
+        img = imread(strcat(current_folder_image, fileslistImgs{i}));
+        img = imresize(img,[dimimg dimimg], 'Antialiasing', false);
+        stimulus(i).img=img;
+        [y,fs] = psychwavread(strcat(current_folder_audio, fileslistSounds{i}));
+        stimulus(i).wav = y;
+    end
+    fclose (fpointer);
+    clear fileslistSounds fileslistImgs
+    stimuli = stimulus;
+end
+
+%% 
+function [str RT]= AskForString(win, stringToPresent)
+    sRT = Screen(win,'flip');
+    [string] = GetEchoString(win, stringToPresent, 50, 50);%, [100 100 100], [250 250 250]);
+    eRT = Screen(win,'flip');
+    str = string;
+    RT = eRT - sRT;
+end 
+
+%%
+function RealTime = ShowFixationCross (win, fixationTime)
+    % fixation frame
+    DrawFormattedText(win, 'look at the fixation point','center', 'center');
+    Screen(win,'flip');
+    WaitSecs(.5);
+    % fixation point
+     DrawFormattedText(win, '+', 'center', 'center');
+    startTime = Screen(win,'flip');
+    while GetSecs < startTime + fixationTime; end
+    removeTime = Screen(win,'flip');
+    RealTime = removeTime; %startTime - removeTime;
+end    
+
+ %% NOIZE GENERATOR
+function Y = noiseSample (Ydata, noizeFactor)
+    noise=rand(size(Ydata));
+    % random noise indexes
+    indexes=randperm(length(Ydata),round(noizeFactor*length(Ydata)));
+    % getting noise into sample
+    length(indexes)
+    for i=1:length(indexes)
+        Ydata(indexes(i)) = noise(i);
+    end
+    Y = Ydata;
+end
+
+function sep = PathSep (void)
+    if ispc()
+        sep = '\';
+    elseif ismac() || IsLinux() 
+        sep ='/';
+    end
+end
