@@ -738,6 +738,7 @@ if strcmp(ans,'y')
    
    %% fourth graph
    inds = find([analysData.exp]==4)';
+   f = figure;
    % data extraction
    inds=tbl(inds,:);
    % data selection
