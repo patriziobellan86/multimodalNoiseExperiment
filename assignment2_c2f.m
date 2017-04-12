@@ -54,7 +54,7 @@ for x=border+((screen_h-screen_v)/2):gridImgSize(1)+border:screen_v+border+((scr
         end
     end
 end
-fixationTime = 0.5;
+fixationTime = 1;
 
 %% SCRIPT START
 
@@ -80,6 +80,10 @@ if strcmp(ans,'y')
     Screen(win,'flip');
     pause(2);
 
+    
+Screen('CloseAll');
+sca;
+
     % selecting experiment folder
     while true
         folder_name = uigetdir(current_folder, 'Selecting the folder of the experiment');
@@ -87,7 +91,10 @@ if strcmp(ans,'y')
             break;
         end
     end
-    
+ 
+% initialize video
+win=Screen('OpenWindow',0,[255 255 255],[screenW_x screenW_y screenW_h screenW_v]);
+   
     DrawFormattedText(win,'loading data experiment', 'center','center');
     Screen(win,'flip');
     
@@ -168,7 +175,7 @@ if strcmp(ans,'y')
                     break
                 end
             end
-%             ShowFixationCross (win, pauseIntratrial);
+ShowFixationCross (win, pauseIntratrial);
             % retrival fase
             % show img          
             DrawFormattedText(win, 'press "x" if the image is the word that you have heard, "n" instead','center',strYpos); 
@@ -230,7 +237,7 @@ if strcmp(ans,'y')
                     break;
                 end
             end
-%             ShowFixationCross (win, pauseIntratrial);
+ShowFixationCross (win, pauseIntratrial);
 
             % retrival fase
             % show img       
@@ -274,7 +281,7 @@ if strcmp(ans,'y')
         DrawFormattedText(win, 'third part','center', 'center'); 
         Screen('Flip', win);
         pause(1);
-        DrawFormattedText(win,'write the word that you have heard : ');
+        DrawFormattedText(win,'write the word that you have heard ','center','center');
         Screen('Flip', win);
         pause(3);
         % listen 
@@ -298,7 +305,7 @@ if strcmp(ans,'y')
                     break;
                 end
             end
-%             ShowFixationCross (win, pauseIntratrial);
+ShowFixationCross (win, pauseIntratrial);
             
             % retrival fase
             [string RT]= AskForString(win, 'write the word that you have heard : ');
@@ -326,7 +333,7 @@ if strcmp(ans,'y')
         Screen('Flip', win);
         pause(1);
         DrawFormattedText(win, 'select ONLY the images corresponding to the words that you have heard before','center','center');
-        pause (3);
+        pause(3);
         Screen('Flip',win);
             
         % only matching seen img 
@@ -412,6 +419,10 @@ if strcmp(ans,'y')
     DrawFormattedText(win, 'Select file to save', 'center','center');
     Screen(win,'flip');
     pause(2);
+    
+    
+Screen('CloseAll');
+sca;
 
     % save data
     while true
@@ -421,6 +432,12 @@ if strcmp(ans,'y')
         end
     end
     FileName=fullfile(PathName,sep,FileName);
+    
+% initialize video
+win=Screen('OpenWindow',0,[255 255 255],[screenW_x screenW_y screenW_h screenW_v]);
+
+
+
     try
         data=struct2table (response);
         writetable(data,FileName);
@@ -462,6 +479,10 @@ if strcmp(ans,'y')
     Screen(win,'flip');
     pause(2);
     Screen(win,'flip');
+    
+Screen('CloseAll');
+sca;
+
     % open data files (a file for each subject)
     FileName = 'none.file';
     while true
@@ -479,7 +500,9 @@ if strcmp(ans,'y')
     if isa(FileName, 'char')
         FileName={FileName};
     end    
-    
+win=Screen('OpenWindow',0,[255 255 255],[screenW_x screenW_y screenW_h screenW_v]);
+DrawFormattedText(win, 'analysing data', 'center','center');
+Screen(win,'flip');
     % load data and add sbj culomn
     for i = 1:length(FileName)
         data=readtable(strcat(PathName,FileName{i}));
@@ -768,6 +791,7 @@ DrawFormattedText(win, 'Thanks', 'center','center');
 Screen(win,'flip');
 pause(3);
 
+PsychPortAudio('Close');
 % close screen
 Screen('CloseAll');
 sca
@@ -822,9 +846,9 @@ end
 %%
 function RealTime = ShowFixationCross (win, fixationTime)
     % fixation frame
-    DrawFormattedText(win, 'look at the fixation point','center', 'center');
-    Screen(win,'flip');
-    WaitSecs(.5);
+%     DrawFormattedText(win, 'look at the fixation point','center', 'center');
+%     Screen(win,'flip');
+%     WaitSecs(.5);
     % fixation point
      DrawFormattedText(win, '+', 'center', 'center');
     startTime = Screen(win,'flip');
